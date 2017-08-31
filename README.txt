@@ -1,0 +1,94 @@
+Tetris Video Decoder Project
+
+Requirements/Dependencies:
+1. Python 2.7
+2. OpenCV 3 (may not work with OpenCV 2)
+3. NumPy
+4. tqdm (small library used for progress bar)
+5. Pillow
+
+Files/Folders:
+1. TVD.py
+2. nextZoid.py
+3. playback.py
+4. util.py
+5. CharacterRecognition (Folder):
+   a. ocr.py
+   b. DataGen.py
+   c. classifications.txt
+   d. flattened_images.txt
+   e. training_chars.png
+   d. test_cases (Folder)
+
++----------------------------------------+
+|                 TVD.py                 |
++----------------------------------------+
+The TVD.py file is the main program. TVD.py requires one positional command line argument which is a path to a video file and has several other optional arguments. The program works in two different modes, normal and test modes. In the normal mode (default mode), the program starts reading a video frame by frame and apply the image processing algorithm to each frame; the program stops when there are no more frames to read. In the test mode (must be specified on the command line), the user must advance frames manually using a slider and observe in real time the result of adjusting different parameters that control the image processing algorithm.  
+
+Visualization: this is an optional tool and the parser can extract the data without it. This tool visualizes all the data being extracted from each frame. All visualization windows can be enabled and disabled by using the appropriate command line flags and all visualization windows are disabled by default (to increase speed of the program) except for the window that shows the detected squares (which can be turned off by its command line flag).
+
+Algorithm: a given video is read frame by frame and each frame is processed to extract the interesting data. the Tetris board is cropped from the frame and resized. Then the background color and noise are replaced with black color and everything else with white color. The algorithm looks at each cell in the board and if there are sufficient white pixels, it is concluded that there is a Tetris square in the current cell. Threshold for white pixels that must exist in each cell can be specified on the command line.
+
+How to remove background color?
+To remove the background color, the relevant portion of the frame is converted from RGB to HSB color space. Then, lower and upper bound are used to determine the range of the background color to be removed. Those lower and upper bound can be set on the command line. In the test mode, the user can adjust those values and observe the removal of the targeted background color in real time. Background color for the Tetris board and the boxes that contain the numerical data have different lower and upper bound although they may have the same color. The reason for making this distinction is because with low resolution videos once we find an ideal background range for the Tetris board, the numbers in their respective boxes look as if they were glued with each other. This confuses the character recognition software and will consider any glued digits as one character and make a bad estimate as a result. To avoid that, the upper and lower bound for the digits background must be fine tuned separately in the test mode so that the digits appear separate from each other. Once the lower and upper bound values are known, they can be set manually on the command line.
+
+The lower and upper bounds are values in the HSB color model. Just like in the RGB color model where a color can be represented with 3 different numbers between 0 and 255, the HSB color model represents colors in a similar way. The HSB (Hue, Saturation, Brightness) color model defines a color space in terms of three constituent components:
+    Hue : the color type (such as red, blue, or yellow).
+    	  Ranges from 0 to 360° in most applications (0 to 179 in TVD).
+	  Each value corresponds to one color: 0 is red, 45 is a shade of
+	  orange and 55 is a shade of yellow.
+	  
+    Saturation : the intensity of the color.
+    	       	 Ranges from 0 to 100% (0 to 255 in TVD).
+		 0 means no color, that is a shade of grey between black and white;
+		 100 means intense color.
+		 
+    Brightness: the brightness of the color.
+    	       	Ranges from 0 to 100% (0 to 255 in TVD).
+		0 is always black; depending on the saturation, 100 may be white
+		or a more or less saturated color.
+HSB color moder resource: http://colorizer.org/
+
+See color wheel chart at http://www.rapidtables.com/web/color/color-wheel.htm
+
+Example1: the following runs the TVD program and removes a range of red color from the Tetris board:
+	  python TVD.py ./videos/Finals2016.mp4 --screen-lower 0 62 10 --screen-upper 93 255 255
+Example2: the following runs the TVD program and removes a range of black color from the numerical data boxes:
+	  python TVD.py ./videos/Finals2016.mp4 --digit-lower 0 0 0 --digit-upper 179 255 110
+
+There are other optional command line arguments which are not discussed here and you may learn about them by running the following command in the terminal:
+       python TVD.py -h
+
++----------------------------------------+
+|              nextZoid.py               |
++----------------------------------------+
+This file has code to detect the letter of Tetris shape that exists in the next zoid box. A template matching technique is used to determine the letter of the Tetris shape. A template is created for each Tetris letter. For each frame, the letter inside the next zoid box is being compared to the created templates. If the letter matches with any of the templates, the next zoid letter is known otherwise 'X' is used to indicate unknown letter. Unknown letters could be when the next zoid box is empty or the letter is unidentifiable.
+
++----------------------------------------+
+|               playback.py              |
++----------------------------------------+
+This file has code to generate a manual playback behavior; the user can jump to different frames in a given video using a slider. This code is used twice: at the beginning of the program to determine the beginning and end of the match, and in the test mode.
+
++----------------------------------------+
+|               util.py                  |
++----------------------------------------+
+This file has implemented tools to assist the main program (TVD.py) such as interactive cropping tool, visualization tool, grid builder, image zoom, etc.
+
++----------------------------------------+
+|         CharacterRecognition           |
++----------------------------------------+
+This is a simple character recognition software. It has been implemented separately in its own folder since it can be run as a stand alone application. The API for this module is implemented in the util.py file and the API is named "NumberParser". This software is used to read numerical data from frames such as score, level, etc. Currently, the software has been trained to recognize digits in two fonts and can be easily trained to recognize digits and alphabets in other fonts as well.
+
+1. DataGen.py: this software is used to for training from a given image. 
+2. classifications.txt: data file generated by DataGen.py and to be used by ocr.py.
+3. flattened_images.txt: data file generated by DataGen.py and to be used by ocr.py.
+4. training_chars.png: This is the image that was used for training and
+                       has digits in two different fonts. 
+5. test_cases (Folder): This folder has images for testing.
+6. ocr.py: This is the software that runs the character recognition algorithm.
+
+How to use the character recognition (CR) software? (Default Tetris font is Super Mario Bros. NES)
+The program can be used as a module in an other program or as a stand alone program for testing. To test an image with digits, the background can be black (default) or white (must be specified on command line) otherwise the background color must be specified manually by reseting the HSB color space values for the DIGIT_LOW and DIGIT_HIGH variables in the code (see background color removal above in the TVD.py section). If those variables are adjusted for testing a single image,  please make sure to restore the default values as the default values are calibrated for the TVD program. Run the help command on the command line for more info about the running the app.
+
+How to train the software to recognize characters in different fonts?
+Run the DataGen.py program with a training image (path to image must be specified on command line). The training image must have characters on a white background and each character must have sufficient distance between it and its neighbor (see training_chars.png). After running the program, the colors of the given image will be reversed (i.e. characters in white and background in black). The black and white image will be used internally so If this step doesn't seem right, try a different image. Press any key to start the training session. A new window will appear showing the original image with a green box around the first character that will be used for training. Press the keyboard key that matches the character inside the green box. Once the user input is read, the newly learned character in a red box and the next character to learn should be in a green box. Repeat the same process until all characters are in red boxes and the program terminates with "Training Complete!!" message in the terminal. The newly trained data will be appended to the classifications.txt and flattened_images.txt files. If those files don't exit, files with the same names will be generated and the new data will be written into those files.
